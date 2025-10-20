@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 import numpy as np
 import pandas as pd
 import scipy.stats
 from pandas.api.types import is_numeric_dtype, is_string_dtype
-from pymatgen.core import Composition, Structure
+from pymatgen.core import Composition, SiteCollection, Structure
+from pymatgen.io.phonopy import get_pmg_structure
 
 from pymatviz.enums import ElemCountMode, Key
 from pymatviz.utils import df_ptable
@@ -255,10 +256,58 @@ def count_formulas(
     return df_counts.sort_values(["arity_name", Key.chem_sys])
 
 
+STRUCTURE_CLASSES = [
+    ("ase", ["Atoms"]),
+    ("pymatgen.core", ["Structure", "IStructure", "Molecule", "IMolecule"]),
+    ("phonopy.structure.atoms", ["PhonopyAtoms"]),
+]
+
+
+def is_structure_like(obj: Any) -> bool:
+    """Check if object is structure-like."""
+    for module_path, class_names in STRUCTURE_CLASSES:
+        try:
+            module = __import__(module_path, fromlist=class_names)
+            if any(
+                isinstance(obj, getattr(module, cls))
+                for cls in class_names
+                if hasattr(module, cls)
+            ):
+                return True
+        except ImportError:
+            pass
+    return False
+
+
 def is_ase_atoms(struct: Any) -> bool:
     """Check if the input is an ASE Atoms object without importing ase."""
     cls_name = f"{type(struct).__module__}.{type(struct).__qualname__}"
     return cls_name in ("ase.atoms.Atoms", "pymatgen.io.ase.MSONAtoms")
+
+
+def is_phonopy_atoms(obj: Any) -> bool:
+    """Check if object is PhonopyAtoms."""
+    cls_name = f"{type(obj).__module__}.{type(obj).__qualname__}"
+    return cls_name == "phonopy.structure.atoms.PhonopyAtoms"
+
+
+def is_trajectory_like(obj: Any) -> bool:
+    """Check if object is trajectory-like."""
+    return (
+        isinstance(obj, (list, tuple))
+        and len(obj) > 0
+        and all(is_structure_like(item) or isinstance(item, dict) for item in obj)
+    )
+
+
+def is_composition_like(obj: Any) -> bool:
+    """Check if object is composition-like."""
+    try:
+        from pymatgen.core import Composition
+
+        return isinstance(obj, Composition)
+    except ImportError:
+        return False
 
 
 def normalize_structures(
@@ -267,27 +316,30 @@ def normalize_structures(
     | pd.Series
     | dict[str, AnyStructure],
 ) -> dict[str, Structure]:
-    """Convert pymatgen Structures or ASE Atoms or sequences/dicts of them
-    to a dictionary of pymatgen Structures.
+    """Convert pymatgen Structures, ASE Atoms, or PhonopyAtoms or sequences/dicts of
+    them to a dictionary of pymatgen Structures.
     """
-    from pymatgen.core import IStructure
     from pymatgen.io.ase import AseAtomsAdaptor
 
-    def to_pmg_struct(item: Any) -> Structure:
+    def to_pmg_struct(item: Any) -> SiteCollection:
         if is_ase_atoms(item):
             return AseAtomsAdaptor().get_structure(item)
-        if isinstance(item, Structure | IStructure):
+        if isinstance(item, SiteCollection):
             return item
+        if is_phonopy_atoms(item):  # convert PhonopyAtoms to pymatgen Structure
+            return get_pmg_structure(item)
         raise TypeError(
-            f"Item must be a Pymatgen Structure or ASE Atoms object, got {type(item)}"
+            f"Item must be a Pymatgen Structure, ASE Atoms, or PhonopyAtoms object, "
+            f"got {type(item)}"
         )
 
-    if is_ase_atoms(systems):  # Handles single ASE Atoms object
+    if is_ase_atoms(systems) or is_phonopy_atoms(systems):
+        # Handles single ASE Atoms or PhonopyAtoms object
         systems = to_pmg_struct(systems)
 
     # Check for single Structure/IStructure first, before checking for Sequence
     # since they are Sequences but we don't want to iterate over sites
-    if isinstance(systems, Structure | IStructure):
+    if isinstance(systems, SiteCollection):
         # Use formula as key for single structure input
         return {systems.formula: systems}
 
@@ -308,14 +360,14 @@ def normalize_structures(
         }
 
     raise TypeError(
-        f"Input must be a Pymatgen Structure, ASE Atoms object, a sequence "
-        f"(list, tuple, pd.Series), or a dict. Got {type(systems)=}"
+        f"Input must be a Pymatgen Structure, ASE Atoms, or PhonopyAtoms object, a "
+        f"sequence (list, tuple, pd.Series), or a dict. Got {type(systems)=}"
     )
 
 
 def normalize_to_dict(
     inputs: T | Sequence[T] | dict[str, T],
-    cls: type[T] = Structure,
+    cls: type[T] = SiteCollection,
     key_gen: Callable[[T], str] = lambda obj: getattr(
         obj, "formula", type(obj).__name__
     ),
@@ -326,10 +378,10 @@ def normalize_to_dict(
         inputs (T | Sequence[T] | dict[str, T]): A single object, a sequence of objects,
             or a dictionary of objects.
         cls (type[T], optional): The class of the objects to normalize. Defaults to
-            pymatgen.core.Structure.
+            pymatgen.core.SiteCollection.
         key_gen (Callable[[T], str], optional): A function that generates a key for
-            each object. Defaults to using the object's formula, assuming the objects
-            are pymatgen.core.(Structure|Molecule).
+            each object. Defaults to using the object's formula attribute, if present
+            (as is the case for pymatgen.core.SiteCollection).
 
     Returns:
         dict[str, T]: Map of objects with keys as object formulas or given keys.
@@ -338,7 +390,7 @@ def normalize_to_dict(
         TypeError: If the input format is invalid.
     """
     if isinstance(inputs, cls):
-        return {"": inputs}
+        return cast("dict[str, T]", {"": inputs})
 
     if (
         isinstance(inputs, list | tuple)
@@ -361,13 +413,13 @@ def normalize_to_dict(
 
     cls_name = cls.__name__
     raise TypeError(
-        f"Invalid {inputs=}, expected {cls_name} or dict/list/tuple of {cls_name}"
+        f"Invalid inputs, expected {cls_name} or dict/list/tuple of {cls_name}"
     )
 
 
 def df_to_arrays(
     df: pd.DataFrame | None,
-    *args: str | Sequence[str] | Sequence[ArrayLike],
+    *args: str | ArrayLike,
     strict: bool = True,
 ) -> list[ArrayLike | dict[str, ArrayLike]]:
     """If df is None, this is a no-op: args are returned as-is. If df is a

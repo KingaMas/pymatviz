@@ -92,7 +92,7 @@ def test_project_vectors_methods(
         expected_obj_type = UMAP
         obj_attrs = {"n_neighbors": 5, "min_dist": 0.2}
 
-    result, proj_obj = project_vectors(sample_data, method=method, **kwargs)
+    result, proj_obj = project_vectors(sample_data, method=method, **kwargs)  # type: ignore[arg-type]
 
     # Check shape of projected data
     assert result.shape == (100, 2)
@@ -128,6 +128,7 @@ def test_project_vectors_components(sample_data: np.ndarray, n_components: int) 
 
     # Check shape matches requested components
     assert result.shape == (100, n_components)
+    assert isinstance(proj_obj, PCA)
     assert proj_obj.n_components_ == n_components
 
     # Check that result is not degenerate
@@ -226,17 +227,22 @@ def test_project_vectors_with_scaling(sample_data: np.ndarray) -> None:
 def test_project_vectors_random_state(sample_data: np.ndarray) -> None:
     """Test reproducibility with fixed random state."""
     pytest.importorskip("umap")
+    from umap import UMAP
 
     # Run twice with same random state for UMAP
     result1, umap_obj1 = project_vectors(sample_data, method="umap", random_state=0)
     result2, umap_obj2 = project_vectors(sample_data, method="umap", random_state=0)
+    assert isinstance(umap_obj1, UMAP)
+    assert umap_obj1.random_state == 0
+    assert umap_obj1 is not umap_obj2
 
     # Results should be identical with same random state
     assert np.allclose(result1, result2, atol=1e-10)
 
     # Run with different random state for UMAP
     result3, umap_obj3 = project_vectors(sample_data, method="umap", random_state=1)
-
+    assert isinstance(umap_obj3, UMAP)
+    assert umap_obj3.random_state == 1
     # Results should be different with different random states
     assert not np.allclose(result1, result3, atol=1e-10)
 
@@ -291,6 +297,9 @@ def test_project_vectors_pca_consistency(sample_data: np.ndarray) -> None:
     assert np.std(result1) == pytest.approx(1.0, rel=0.5)
     assert np.mean(result1) == pytest.approx(0.0, abs=1e-10)
 
+    assert isinstance(pca_obj1, PCA)
+    assert isinstance(pca_obj2, PCA)
+    assert isinstance(pca_obj3, PCA)
     # Check that all PCA objects have the same explained variance ratios
     assert np.allclose(
         pca_obj1.explained_variance_ratio_, pca_obj2.explained_variance_ratio_

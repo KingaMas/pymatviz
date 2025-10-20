@@ -8,6 +8,7 @@ axis labels with sub/superscripts.
 from __future__ import annotations
 
 import builtins
+import os
 from importlib.metadata import PackageNotFoundError, version
 
 import plotly.express as px
@@ -38,6 +39,7 @@ from pymatviz import (
     typing,
     uncertainty,
     utils,
+    widgets,
     xrd,
 )
 from pymatviz.bar import spacegroup_bar
@@ -65,7 +67,6 @@ from pymatviz.scatter import (
     density_hexbin,
     density_hexbin_with_hist,
     density_scatter,
-    density_scatter_plotly,
     density_scatter_with_hist,
 )
 from pymatviz.structure import structure_2d, structure_3d
@@ -79,6 +80,7 @@ from pymatviz.templates import (
 from pymatviz.treemap import chem_env_treemap, chem_sys_treemap, py_pkg_treemap
 from pymatviz.uncertainty import error_decay_with_uncert, qq_gaussian
 from pymatviz.utils import PKG_DIR, ROOT, df_ptable, html_tag, si_fmt, si_fmt_int
+from pymatviz.widgets import CompositionWidget, StructureWidget, TrajectoryWidget
 from pymatviz.xrd import xrd_pattern
 
 
@@ -86,7 +88,7 @@ PKG_NAME = "pymatviz"
 try:
     __version__ = version(PKG_NAME)
 except PackageNotFoundError:
-    pass  # package not installed
+    __version__ = "n/a"  # package not correctly installed
 
 
 IS_IPYTHON = hasattr(builtins, "__IPYTHON__")
@@ -109,5 +111,15 @@ px.defaults.labels |= {
 # to hide math loading MathJax message in bottom left corner of plotly PDFs
 # https://github.com/plotly/Kaleido/issues/122#issuecomment-994906924
 # use pio.kaleido.scope.mathjax = None
+
+
+if os.environ.get("CI"):  # Configure Plotly to be silent in CI
+    import plotly.graph_objects as go
+
+    _plotly_fig_orig_show = go.Figure.show  # Store original show method
+
+    # Replace fig.show() method with a noop version for CI environments to avoid
+    # spamming logs with huge HTML strings
+    go.Figure.show = lambda *_args, **_kwargs: None  # type: ignore[assignment]
 
 notebook_mode(on=IS_IPYTHON)

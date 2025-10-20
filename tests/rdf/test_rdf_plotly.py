@@ -115,7 +115,7 @@ def test_element_pair_rdfs_invalid_elements(structures: list[Structure]) -> None
 
 
 def test_element_pair_rdfs_invalid_structure() -> None:
-    err_msg = "Input must be a Pymatgen Structure, ASE Atoms object"
+    err_msg = "Input must be a Pymatgen Structure, ASE Atoms"
     with pytest.raises(TypeError, match=err_msg):
         element_pair_rdfs("not a structure")
 
@@ -250,6 +250,7 @@ def test_element_pair_rdfs_custom_colors_and_styles(
 def test_element_pair_rdfs_reference_line(structures: list[Structure]) -> None:
     ref_line_kwargs = {"line_color": "teal", "line_width": 2}
     fig = element_pair_rdfs(structures, reference_line=ref_line_kwargs)
+    assert fig._grid_ref is not None
     n_subplots = len(fig._grid_ref) * len(fig._grid_ref[0])
     assert (
         sum(
@@ -309,14 +310,14 @@ def test_full_rdf_empty_structure() -> None:
 
 
 def test_full_rdf_invalid_structure() -> None:
-    err_msg = "Input must be a Pymatgen Structure, ASE Atoms object"
+    err_msg = "Input must be a Pymatgen Structure, ASE Atoms"
     with pytest.raises(TypeError, match=err_msg):
         full_rdf("not a structure")
 
 
 def test_full_rdf_conflicting_bins_and_bin_size(structures: list[Structure]) -> None:
     with pytest.raises(
-        ValueError, match="Cannot specify both n_bins=.* and bin_size=.*"
+        ValueError, match=r"Cannot specify both n_bins=.* and bin_size=.*"
     ):
         full_rdf(structures, n_bins=100, bin_size=0.1)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ from pymatviz.utils.plotting import luminance
 
 
 if TYPE_CHECKING:
-    from typing import Any, Literal
+    from typing import Literal
 
 
 ColorScale: TypeAlias = (
@@ -210,12 +210,13 @@ def ptable_heatmap_plotly(
                 elif heat_mode == "percent":
                     label = f"{heat_val:{fmt or '.1%'}}"
                 else:
-                    label = f"{si_fmt(heat_val, fmt=fmt or '.1f')}".replace("e+0", "e")
+                    fmt_str = fmt if isinstance(fmt, str) else ".1f"
+                    label = f"{si_fmt(heat_val, fmt=fmt_str)}".replace("e+0", "e")
 
             if callable(label_map):
                 label = label_map(label)
             elif isinstance(label_map, dict):
-                label = label_map.get(label, label)
+                label = label_map.get(label, label)  # type: ignore[arg-type]
         # Apply custom element symbol if provided
         display_symbol = (element_symbol_map or {}).get(symbol, symbol)
 
@@ -556,13 +557,13 @@ def ptable_hists_plotly(
             else f"<b>{display_symbol}</b> ({symbol})"
         ) + "<br>Range: %{x}<br>Count: %{y}<extra></extra>"
 
+        start, end = 0, 1
+        if bins_range and len(bins_range) == 2:
+            start, end = bins_range[0] or 0, bins_range[1] or 1
+
         fig.add_histogram(
             x=values,
-            xbins=dict(
-                start=bins_range[0],
-                end=bins_range[1],
-                size=(bins_range[1] - bins_range[0]) / bins,
-            ),
+            xbins=dict(start=start, end=end, size=(end - start) / bins),
             marker_color=px.colors.sample_colorscale(colorscale, bins),
             showlegend=False,
             hovertemplate=hover_template,
@@ -597,17 +598,19 @@ def ptable_hists_plotly(
             if callable(annotations):
                 # Pass the element's values to the callable
                 annotation = annotations(values)
-            else:
+            elif isinstance(annotations, dict):
                 # Use dictionary lookup
                 annotation = annotations.get(symbol, "")
+            else:
+                annotation = ""
 
             if annotation:  # Only add annotation if we have text
                 # Convert single annotation to list for uniform handling
                 for anno in (
-                    [annotation] if isinstance(annotation, str | dict) else annotation
+                    [annotation] if isinstance(annotation, str | dict) else annotation  # type: ignore[not-iterable]
                 ):
                     # Convert string annotations to dict format
-                    anno_dict = {"text": anno} if isinstance(anno, str) else anno
+                    anno_dict = anno if isinstance(anno, dict) else {"text": anno}
                     anno_defaults = {
                         "font_size": (font_size or 8) * scale,
                         "x": 0.95,
@@ -622,12 +625,15 @@ def ptable_hists_plotly(
         cbar_settings = _get_colorbar_settings(
             colorbar, font_size=font_size, scale=scale
         )
+        cmin, cmax = 0, 1
+        if bins_range and len(bins_range) == 2:
+            cmin, cmax = bins_range[0] or 0, bins_range[1] or 1
         _add_colorbar_trace(
             fig,
             colorscale,
-            bins_range[0],
-            bins_range[1],
-            cbar_settings,
+            cmin=cmin,
+            cmax=cmax,
+            colorbar=cbar_settings,
             row=n_rows,
             col=n_cols,
         )
@@ -705,7 +711,7 @@ def _add_colorbar_trace(
     if "tickformat" not in colorbar:
         colorbar["tickformat"] = ".4s"  # SI suffix (k=1000, M=1e6, G=1e9, etc.)
 
-    marker = dict(
+    marker = dict[str, Any](
         size=0,
         color=[cmin, cmax],
         colorscale=colorscale,
@@ -714,7 +720,7 @@ def _add_colorbar_trace(
         cmax=cmax,
         colorbar=colorbar,
     )
-    scatter_kwargs = dict(
+    scatter_kwargs = dict[str, Any](
         x=[None],
         y=[None],
         mode="markers",
@@ -899,8 +905,10 @@ def ptable_heatmap_splits_plotly(
         ValueError: If n_splits not in {2, 3, 4} or orientation="grid" with n_splits!=4
     """
     import plotly.colors
-    from plotly.validators.scatter.marker import ColorscaleValidator
+    from plotly.validator_cache import ValidatorCache
     from pymatgen.core import Element
+
+    colorscale_validator = ValidatorCache.get_validator("scatter.marker", "colorscale")
 
     # Get split names if data is a DataFrame
     split_labels: list[str] = []
@@ -908,9 +916,9 @@ def ptable_heatmap_splits_plotly(
         split_labels = list(data.columns)
         # Propagate column names to colorbar titles if not explicitly set
         if isinstance(colorbar, dict):
-            colorbar = colorbar.copy()
-            if "title" not in colorbar:
-                colorbar["title"] = split_labels[0] if len(split_labels) == 1 else None
+            colorbar = colorbar.copy()  # type: ignore[arg-type]
+            if "title" not in colorbar:  # type: ignore[arg-type]
+                colorbar["title"] = split_labels[0] if len(split_labels) == 1 else None  # type: ignore[arg-type]
         elif isinstance(colorbar, Sequence):
             colorbar = list(colorbar)  # Convert to list to allow modification
             for idx, (cbar, label) in enumerate(
@@ -979,7 +987,7 @@ def ptable_heatmap_splits_plotly(
         colorbars = [colorbar or {}]  # type: ignore[list-item]
 
     # Validate colorscales
-    validator = ColorscaleValidator()
+    validator = colorscale_validator
     for idx, cscale in enumerate(colorscales):
         if callable(cscale):
             continue
@@ -1342,17 +1350,19 @@ def ptable_heatmap_splits_plotly(
             if callable(annotations):
                 # Pass the element's values to the callable
                 annotation = annotations(values)
-            else:
+            elif isinstance(annotations, dict):
                 # Use dictionary lookup
                 annotation = annotations.get(symbol, "")
+            else:
+                annotation = ""
 
             if annotation:  # Only add annotation if we have text
                 # Convert single annotation to list for uniform handling
                 for anno in (
-                    [annotation] if isinstance(annotation, str | dict) else annotation
+                    [annotation] if isinstance(annotation, str | dict) else annotation  # type: ignore[not-iterable]
                 ):
                     # Convert string annotations to dict format
-                    anno_dict = {"text": anno} if isinstance(anno, str) else anno
+                    anno_dict = anno if isinstance(anno, dict) else {"text": anno}
                     anno_defaults = {
                         "font_size": (font_size or 8) * scale,
                         "x": 0.95,
@@ -1426,7 +1436,7 @@ def ptable_heatmap_splits_plotly(
 
             # Get colorbar settings with consistent positioning
             cbar_settings = _get_colorbar_settings(
-                cbar,
+                cbar,  # type: ignore[arg-type]
                 split_idx=split_idx,
                 n_splits=n_splits if use_multiple_cbar else 1,
                 split_name=split_name if use_multiple_cbar else None,
@@ -1442,13 +1452,13 @@ def ptable_heatmap_splits_plotly(
                 # Get the appropriate colorbar settings for this split
                 split_idx = idx % n_splits
                 split_name = split_labels[split_idx] if split_labels else None
-                cb = (
+                cbar = (
                     colorbars[split_idx]
                     if isinstance(colorbar, Sequence)
                     else colorbars[0]
                 )
                 cbar_settings = _get_colorbar_settings(
-                    cb,
+                    cbar,  # type: ignore[arg-type]
                     split_idx=split_idx,
                     n_splits=n_splits,
                     split_name=split_name,
@@ -1803,16 +1813,18 @@ def ptable_scatter_plotly(
             if callable(annotations):
                 # Pass the element's values to the callable
                 annotation = annotations(data[symbol])
-            else:
+            elif isinstance(annotations, dict):
                 annotation = annotations.get(symbol, "")
+            else:
+                annotation = ""
 
             if annotation:  # Only add annotation if we have text
                 # Convert single annotation to list for uniform handling
                 for anno in (
-                    [annotation] if isinstance(annotation, str | dict) else annotation
+                    [annotation] if isinstance(annotation, str | dict) else annotation  # type: ignore[not-iterable]
                 ):
                     # Convert string annotations to dict format
-                    anno_dict = {"text": anno} if isinstance(anno, str) else anno
+                    anno_dict = anno if isinstance(anno, dict) else {"text": anno}
                     anno_defaults = {
                         "font_size": (font_size or 8) * scale,
                         "x": 0.95,

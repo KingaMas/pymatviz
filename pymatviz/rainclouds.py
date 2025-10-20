@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -14,11 +14,12 @@ from scipy import stats
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Literal
 
 
 def rainclouds(
-    data: dict[str, Sequence[float] | tuple[pd.DataFrame, str]],
+    data: Mapping[str, Sequence[float] | tuple[pd.DataFrame, str]],
     *,
     orientation: Literal["h", "v"] = "h",
     alpha: float = 0.7,
@@ -110,7 +111,7 @@ def rainclouds(
                 and label in hover_data
                 and col not in hover_data[label]
             ):
-                hover_data[label] = [col, *hover_data[label]]
+                hover_data[label] = [col, *hover_data[label]]  # type: ignore[invalid-assignment]
         else:
             values = data_itm
 
@@ -177,13 +178,15 @@ def rainclouds(
 
             if hover_data is not None:
                 if isinstance(hover_data, dict):
-                    columns_to_show = hover_data.get(label, [])
+                    cols_to_show: Sequence[str] = hover_data.get(label, [])  # type: ignore[assignment]
                 else:
-                    columns_to_show = hover_data
+                    cols_to_show = hover_data
 
-                if isinstance(data_itm, tuple):
+                if isinstance(data_itm, tuple) and isinstance(
+                    cols_to_show, (list, tuple)
+                ):
                     df_i, col = data_itm
-                    for col in columns_to_show:
+                    for col in cols_to_show:
                         if col in df_i:
                             for val_idx, val in enumerate(df_i[col]):
                                 hover_text[val_idx] += f"<br>{col}: {val}"

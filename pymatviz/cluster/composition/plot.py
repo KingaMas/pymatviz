@@ -11,9 +11,9 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.validators.scatter.marker import SymbolValidator
-from plotly.validators.scatter3d.marker import SymbolValidator as Symbol3dValidator
+from plotly.validator_cache import ValidatorCache
 from pymatgen.core import Composition
+from sklearn.decomposition import PCA
 
 from pymatviz.cluster.composition.embed import matminer_featurize, one_hot_encode
 from pymatviz.cluster.composition.project import project_vectors
@@ -22,7 +22,29 @@ from pymatviz.cluster.composition.project import project_vectors
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
+    from sklearn.decomposition import KernelPCA
+    from sklearn.manifold import TSNE, Isomap
+
     from pymatviz.typing import ColorType
+
+symbol_validator = ValidatorCache.get_validator("scatter.marker", "symbol")
+symbol_3d_validator = ValidatorCache.get_validator("scatter3d.marker", "symbol")
+
+
+class ClusterFigure(go.Figure):
+    """A Plotly Figure with typed metadata for clustering visualizations."""
+
+    # Declare attributes for type checker
+    projector: PCA | TSNE | Isomap | KernelPCA | None
+    embeddings: np.ndarray | None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the figure with optional metadata."""
+        super().__init__(*args, **kwargs)
+        # Use object.__setattr__ to bypass Plotly's attribute validation
+        object.__setattr__(self, "projector", None)
+        object.__setattr__(self, "embeddings", None)
+
 
 EmbeddingMethod = Literal[
     "one-hot", "magpie", "deml", "matminer", "matscholar_el", "megnet_el"
@@ -57,7 +79,7 @@ def _generate_colorbar_ticks(
         tuple[list[float] | None, list[str] | None]: Lists of tick values and their
             label texts. Both can be None if no custom ticks are needed.
     """
-    if color_scale in ("linear", "color"):
+    if color_scale == "linear":
         return None, None
 
     # Create custom ticks that reflect the original data values
@@ -265,9 +287,9 @@ def _generate_colorbar_ticks(
             # Make sure we include zero if in range
             if min_val <= 0 <= max_val and 0 not in reduced_ticks:
                 # Find the index where 0 would be inserted to maintain order
-                for i, val in enumerate(reduced_ticks):
+                for idx, val in enumerate(reduced_ticks):
                     if val > 0:
-                        reduced_ticks.insert(i, 0)
+                        reduced_ticks.insert(idx, 0)
                         break
                 else:
                     reduced_ticks.append(0)
@@ -335,7 +357,7 @@ def cluster_compositions(
     color_scale: ColorScale | dict[str, Any] = "linear",
     annotate_points: Callable[[pd.Series], str | dict[str, Any] | None] | None = None,
     **kwargs: Any,
-) -> go.Figure:
+) -> ClusterFigure:
     """Plot chemical composition clusters with optional property coloring.
 
     Gives a 2D or 3D scatter plot of chemical compositions, using various
@@ -437,11 +459,10 @@ def cluster_compositions(
         **kwargs: Passed to px.scatter or px.scatter_3d (depending on n_components)
 
     Returns:
-        go.Figure: Plotly figure object with embeddings and projection object in
-            '_pymatviz' attribute:
-            - fig._pymatviz["projector"]: Fitted projection object
-              (PCA, TSNE, etc.) or None for custom projection functions
-            - fig._pymatviz["embeddings"]: Embeddings used for projection
+        ClusterFigure: Plotly figure object with typed metadata attributes:
+            - fig.projector: Fitted projection object (PCA, TSNE, etc.) or None
+              for custom projection functions
+            - fig.embeddings: Embeddings used for projection
     """
     if n_components not in (2, 3):  # Validate inputs
         raise ValueError(f"{n_components=} must be 2 or 3")
@@ -624,15 +645,19 @@ def cluster_compositions(
         # Get valid symbols for the current plot type
         if n_components == 3:
             # For 3D plots, we need to use a more limited set of markers
-            all_symbols = Symbol3dValidator("symbol", "scatter3d.marker").values  # noqa: PD011
+            all_symbols = symbol_3d_validator.values  # noqa: PD011
             valid_symbols = list(filter(symbol_filter, all_symbols))
         else:
             # For 2D plots, we can use the full set of markers
-            all_symbols = SymbolValidator("symbol", "scatter.marker").values  # noqa: PD011
+            all_symbols = symbol_validator.values  # noqa: PD011
             valid_symbols = list(filter(symbol_filter, all_symbols))
 
         # Check if we have more unique systems than available symbols
-        if "shape" in show_chem_sys and len(uniq_chem_sys) > len(valid_symbols):
+        if (
+            show_chem_sys is not None
+            and "shape" in show_chem_sys
+            and len(uniq_chem_sys) > len(valid_symbols)
+        ):
             warnings.warn(
                 f"Number of unique chemical systems ({len(uniq_chem_sys)}) exceeds "
                 f"available marker symbols ({len(valid_symbols)}). Some systems will "
@@ -788,7 +813,8 @@ def cluster_compositions(
     elif isinstance(projection, str):
         # For built-in projection methods, use standardized labels
         method_label = method_labels.get(projection, "Component")  # type: ignore[call-overload]
-    else:  # For custom projection funcs, use func name or generic fallback if unnamed
+    else:  # For custom projection functions, use func.__name__
+        # or generic fallback if unnamed
         method_label = getattr(projection, "__name__", "Component")
         if method_label in ("<lambda>", "lambda", "", " ", None):
             method_label = "Component"
@@ -838,7 +864,7 @@ def cluster_compositions(
     # Calculate projection statistics
     projection_stats: str | None = None
     if show_projection_stats and not using_precomputed_coords:
-        if projection == "pca" and projector is not None:
+        if projection == "pca" and isinstance(projector, PCA):
             # Get explained variance ratios from PCA object
             var_explained_ratio = projector.explained_variance_ratio_[:n_components]
             cum_var_explained = np.cumsum(var_explained_ratio)
@@ -904,6 +930,9 @@ def cluster_compositions(
 
     def apply_symbol_mapping(fig: go.Figure, symbol_map: dict[str, str]) -> None:
         """Apply symbol mapping to the figure based on the visualization mode."""
+        if chem_systems is None:
+            return
+
         if prop_values is not None or show_chem_sys == "shape":
             # For property-colored plots or shape mode, we have one trace with
             # different symbols
@@ -962,12 +991,13 @@ def cluster_compositions(
         fig = plot_func(df_shape, **shape_kwargs | kwargs)
 
         # Apply the symbols
-        symbols = [symbol_map[cs] for cs in chem_systems]
-        fig.data[0].marker.symbol = symbols
+        if chem_systems is not None:
+            symbols = [symbol_map[cs] for cs in chem_systems]
+            fig.data[0].marker.symbol = symbols
 
         # If we don't have properties to color by, but need to color by chemical system
         # we need to manually set the colors
-        if prop_values is None:
+        if prop_values is None and chem_systems is not None:
             # Create a color mapping
             color_map = color_discrete_map or {}
             chem_sys_colors = []
@@ -1091,10 +1121,10 @@ def cluster_compositions(
                     }
                     fig.add_annotation(annotation)
 
-    # Attach projector and embeddings as metadata dict
-    # since Plotly doesn't allow arbitrary attributes on Figures
-    fig._pymatviz = {"projector": projector}
+    # Convert to ClusterFigure and attach metadata
+    cluster_fig = ClusterFigure(fig)
+    object.__setattr__(cluster_fig, "projector", projector)
     if embeddings is not None:
-        fig._pymatviz["embeddings"] = embeddings
+        object.__setattr__(cluster_fig, "embeddings", embeddings)
 
-    return fig
+    return cluster_fig

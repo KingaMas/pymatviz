@@ -232,6 +232,7 @@ def test_ptable_heatmap_plotly_label_map(
         # check for non-empty intersection between label_map values and annotations
         # we use `val in anno.text` cause the labels are wrapped in non-matching
         # HTML <span> tags
+        assert isinstance(label_map, dict)
         assert sum(
             any(val in anno.text for val in label_map.values())
             for anno in fig.layout.annotations
@@ -298,7 +299,7 @@ def test_ptable_heatmap_plotly_custom_label_map() -> None:
         for anno in fig.layout.annotations
         if anno.text.endswith(("High", "Low"))
     ]
-    assert len(annos) == 2, f"{len(annos)=}"
+    assert len(annos) == 2
 
 
 def test_ptable_heatmap_plotly_error_cases() -> None:

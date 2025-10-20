@@ -22,7 +22,8 @@ from pymatviz.coordination.helpers import (
     normalize_get_neighbors,
 )
 from pymatviz.enums import ElemColorScheme
-from pymatviz.process_data import normalize_structures, normalize_to_dict
+from pymatviz.process_data import normalize_structures
+from pymatviz.structure.helpers import get_site_elements, get_site_symbol
 
 
 if TYPE_CHECKING:
@@ -112,7 +113,7 @@ def coordination_hist(
             cn = len(get_neighbors(site, structure))
             min_cn = min(min_cn, cn)
             max_cn = max(max_cn, cn)
-            elem_symbol = site.specie.symbol
+            elem_symbol = get_site_symbol(site)
             if elem_symbol not in coord_data[struct_key]:
                 coord_data[struct_key][elem_symbol] = {"cn": [], "hover_data": {}}
             coord_data[struct_key][elem_symbol]["cn"].append(cn)
@@ -391,7 +392,7 @@ def coordination_vs_cutoff_line(
     Returns:
         A plotly Figure object containing the line plot.
     """
-    structures = normalize_to_dict(structures)
+    structures = normalize_structures(structures)
 
     # Determine cutoff range based on strategy
     if (
@@ -408,7 +409,18 @@ def coordination_vs_cutoff_line(
         if hasattr(nn_instance, "cutoff"):
             max_cutoff = nn_instance.cutoff
         elif hasattr(nn_instance, "distance_cutoffs"):
-            max_cutoff = nn_instance.distance_cutoffs[1]
+            distance_cutoffs = nn_instance.distance_cutoffs
+            if (
+                isinstance(distance_cutoffs, (list, tuple))
+                and len(distance_cutoffs) > 1
+            ):
+                max_cutoff = distance_cutoffs[1]
+            else:
+                max_cutoff = (
+                    distance_cutoffs
+                    if isinstance(distance_cutoffs, (int, float))
+                    else 5.0
+                )
         else:
             raise AttributeError(f"Could not determine cutoff for {nn_instance=}")
         cutoff_range = (0, max_cutoff)
@@ -443,7 +455,13 @@ def coordination_vs_cutoff_line(
     fig = make_subplots(**subplot_kwargs)
 
     for idx, (struct_name, structure) in enumerate(structures.items(), start=1):
-        elements = sorted({site.specie.symbol for site in structure})
+        elements = sorted(
+            {
+                elem_symbol
+                for site in structure
+                for elem_symbol in get_site_elements(site)
+            }
+        )
 
         for element in elements:
             coord_numbers = []

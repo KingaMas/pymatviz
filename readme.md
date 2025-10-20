@@ -21,7 +21,7 @@ A toolkit for visualizations in materials informatics.
 
 <slot name="how-to-cite">
 
-> If you use `pymatviz` in your research, [see how to cite](#how-to-cite-pymatviz). Check out [23 existing papers using `pymatviz`](#papers-using-pymatviz) for inspiration!
+> If you use `pymatviz` in your research, [see how to cite](#how-to-cite-pymatviz). Check out [33 existing papers using `pymatviz`](#papers-using-pymatviz) for inspiration!
 
 </slot>
 
@@ -153,6 +153,41 @@ See [`pymatviz/structure/plotly.py`](pymatviz/structure/plotly.py).
 [hea-structure-3d]: assets/svg/hea-structure-3d.svg
 [lco-structure-3d]: assets/svg/lco-structure-3d.svg
 
+## Interactive Widgets
+
+See [`pymatviz/widgets`](pymatviz/widgets). Interactive 3D structure, molecular dynamics trajectory and composition visualization widgets for [Jupyter](https://jupyter.org), [Marimo](https://marimo.io), and VSCode notebooks, powered by [anywidget](https://anywidget.dev) and [MatterViz](https://matterviz.janosh.dev) (<https://github.com/janosh/matterviz>). Supports pymatgen `Structure`, ASE `Atoms`, and `PhonopyAtoms`, as well as ASE, `pymatgen` and plain Python trajectory formats.
+
+```py
+from pymatviz import StructureWidget, CompositionWidget, TrajectoryWidget
+from pymatgen.core import Structure, Composition
+
+# Interactive 3D structure visualization
+structure = Structure.from_file("structure.cif")
+struct_widget = StructureWidget(structure=structure)
+
+# Interactive composition visualization
+composition = Composition("Fe2O3")
+comp_widget = CompositionWidget(composition=composition)
+
+# Interactive trajectory visualization
+trajectory1 = [struct1, struct2, struct3]  # List of structures
+traj_widget1 = TrajectoryWidget(trajectory=trajectory1)
+
+trajectory2 = [{"structure": struct1, "energy": 1.0}, {"structure": struct2, "energy": 2.0}, {"structure": struct3, "energy": 3.0}]  # dicts with "structure" and property values
+traj_widget2 = TrajectoryWidget(trajectory=trajectory2)
+```
+
+**Examples:**
+
+- [Jupyter notebook demo](examples/widgets/jupyter_demo.ipynb)
+- [Marimo demo](examples/widgets/marimo_demo.py)
+- [VSCode interactive demo](examples/widgets/vscode_interactive_demo.py)
+
+> [!TIP]
+> Checkout the **✅ MatterViz VSCode extension** for using the same viewers directly in VSCode/Cursor editor tabs for rendering local and remote files: [marketplace.visualstudio.com/items?itemName=janosh.matterviz](https://marketplace.visualstudio.com/items?itemName=janosh.matterviz)
+
+Importing `pymatviz` auto-registers all widgets for their respective sets of supported objects via `register_matterviz_widgets()`. To customize the registration, use [`set_renderer()`](pymatviz/widgets/mime.py).
+
 ## Brillouin Zone
 
 See [`pymatviz/brillouin.py`](pymatviz/brillouin.py).
@@ -212,13 +247,13 @@ See [`pymatviz/coordination/plotly.py`](pymatviz/coordination/plotly.py).
 
 ## Sunburst
 
-See [`pymatviz/sunburst.py`](pymatviz/sunburst.py).
+See [`pymatviz/sunburst.py`](pymatviz/sunburst).
 
-| [`spacegroup_sunburst([65, 134, 225, ...])`](pymatviz/sunburst.py#L111) [![fig-icon]](assets/scripts/sunburst/spacegroup_sunburst.py) | [`chem_sys_sunburst(["FeO", "Fe2O3", "LiPO4", ...])`](pymatviz/sunburst.py#L206) [![fig-icon]](assets/scripts/sunburst/chem_sys_sunburst.py) |
-| :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------: |
-|                                                          ![spg-num-sunburst]                                                          |                                                        ![chem-sys-sunburst-ward-bmg]                                                         |
-|                                    [`chem_env_sunburst(single_struct)`](pymatviz/sunburst.py#L351)                                    |                                      [`chem_env_sunburst(multiple_structs)`](pymatviz/sunburst.py#L351)                                      |
-|                                                      ![chem-env-sunburst-basic]                                                       |                                                        ![chem-env-sunburst-mp-carbon]                                                        |
+| [`spacegroup_sunburst([65, 134, 225, ...])`](pymatviz/sunburst/spacegroup.py) [![fig-icon]](assets/scripts/sunburst/spacegroup_sunburst.py) | [`chem_sys_sunburst(["FeO", "Fe2O3", "LiPO4", ...])`](pymatviz/sunburst/chem_sys.py) [![fig-icon]](assets/scripts/sunburst/chem_sys_sunburst.py) |
+| :-----------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------: |
+|                                                             ![spg-num-sunburst]                                                             |                                                          ![chem-sys-sunburst-ward-bmg]                                                           |
+|                                     [`chem_env_sunburst(single_struct)`](pymatviz/sunburst/chem_env.py)                                     |                                      [`chem_env_sunburst(multiple_structs)`](pymatviz/sunburst/chem_env.py)                                      |
+|                                                         ![chem-env-sunburst-basic]                                                          |                                                          ![chem-env-sunburst-mp-carbon]                                                          |
 
 [spg-num-sunburst]: assets/svg/spg-num-sunburst.svg
 [chem-sys-sunburst-ward-bmg]: assets/svg/chem-sys-sunburst-ward-bmg.svg
@@ -234,13 +269,19 @@ See [`pymatviz/treemap/chem_sys.py`](pymatviz/treemap/chem_sys.py).
 |                                                           ![chem-sys-treemap-formula]                                                            |                                        ![chem-sys-treemap-ward-bmg]                                        |
 |           [`chem_env_treemap(structures)`](pymatviz/treemap/chem_env.py#L36) [![fig-icon]](assets/scripts/treemap/chem_env_treemap.py)           |     [`chem_env_treemap(structures, max_cells_cn=3, max_cells_ce=4)`](pymatviz/treemap/chem_env.py#L36)     |
 |                                                            ![chem-env-treemap-basic]                                                             |                                     ![chem-env-treemap-large-dataset]                                      |
-|              [`py_pkg_treemap("pymatviz")`](pymatviz/treemap/py_pkg.py#L36) [![fig-icon]](assets/scripts/treemap/py_pkg_treemap.py)              |         [`py_pkg_treemap(["pymatviz", "torch_sim", "pymatgen"])`](pymatviz/treemap/py_pkg.py#L36)          |
+|              [`py_pkg_treemap("pymatviz")`](pymatviz/treemap/py_pkg.py#L36) [![fig-icon]](assets/scripts/treemap/py_pkg_treemap.py)              |           [`py_pkg_treemap(["pymatviz", "flame", "pymatgen"])`](pymatviz/treemap/py_pkg.py#L36)            |
 |                                                            ![py-pkg-treemap-pymatviz]                                                            |                                         ![py-pkg-treemap-multiple]                                         |
+|   [`py_pkg_treemap("pymatviz", color_by="coverage")`](pymatviz/treemap/py_pkg.py#L36) [![fig-icon]](assets/scripts/treemap/py_pkg_treemap.py)    | [`py_pkg_treemap("pymatgen", color_by="coverage", color_range=(0, 100))`](pymatviz/treemap/py_pkg.py#L36)  |
+|                                                       ![py-pkg-treemap-pymatviz-coverage]                                                        |                                    ![py-pkg-treemap-pymatgen-coverage]                                     |
+
+> **Note:** For `color_by="coverage"` the package must have coverage data (e.g. run `pytest --cov=<pkg> --cov-report=xml` and pass the resulting `.coverage` file to `coverage_data_file`).
 
 [chem-sys-treemap-formula]: assets/svg/chem-sys-treemap-formula.svg
 [chem-sys-treemap-ward-bmg]: assets/svg/chem-sys-treemap-ward-bmg.svg
 [py-pkg-treemap-pymatviz]: assets/svg/py-pkg-treemap-pymatviz.svg
 [py-pkg-treemap-multiple]: assets/svg/py-pkg-treemap-multiple.svg
+[py-pkg-treemap-pymatgen-coverage]: assets/svg/py-pkg-treemap-pymatgen-coverage.svg
+[py-pkg-treemap-pymatviz-coverage]: assets/svg/py-pkg-treemap-pymatviz-coverage.svg
 [chem-env-treemap-large-dataset]: assets/svg/chem-env-treemap-large-dataset.svg
 [chem-env-treemap-basic]: assets/svg/chem-env-treemap-basic.svg
 
@@ -291,16 +332,12 @@ See [`pymatviz/histogram.py`](pymatviz/histogram.py).
 
 See [`pymatviz/scatter.py`](pymatviz/scatter.py).
 
-|                  [`density_scatter_plotly(df, x=x_col, y=y_col, ...)`](pymatviz/scatter.py#L149)                   | [`density_scatter_plotly(df, x=x_col, y=y_col, ...)`](pymatviz/scatter.py#L149) [![fig-icon]](assets/scripts/scatter/density_scatter_plotly.py) |
-| :----------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------: |
-|                                             ![density-scatter-plotly]                                              |                                                         ![density-scatter-plotly-blobs]                                                         |
-| [`density_scatter(xs, ys, ...)`](pymatviz/scatter.py#L71) [![fig-icon]](assets/scripts/scatter/density_scatter.py) |          [`density_scatter_with_hist(xs, ys, ...)`](pymatviz/scatter.py#L570) [![fig-icon]](assets/scripts/scatter/density_scatter.py)          |
-|                                                 ![density-scatter]                                                 |                                                          ![density-scatter-with-hist]                                                           |
-| [`density_hexbin(xs, ys, ...)`](pymatviz/scatter.py#L493) [![fig-icon]](assets/scripts/scatter/density_hexbin.py)  |           [`density_hexbin_with_hist(xs, ys, ...)`](pymatviz/scatter.py#L587) [![fig-icon]](assets/scripts/scatter/density_hexbin.py)           |
-|                                                 ![density-hexbin]                                                  |                                                           ![density-hexbin-with-hist]                                                           |
+| [`density_scatter(xs, ys, ...)`](pymatviz/scatter.py) [![fig-icon]](assets/scripts/scatter/density_scatter.py) | [`density_scatter_with_hist(xs, ys, ...)`](pymatviz/scatter.py) [![fig-icon]](assets/scripts/scatter/density_scatter.py) |
+| :------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------: |
+|                                               ![density-scatter]                                               |                                               ![density-scatter-with-hist]                                               |
+|  [`density_hexbin(xs, ys, ...)`](pymatviz/scatter.py) [![fig-icon]](assets/scripts/scatter/density_hexbin.py)  |  [`density_hexbin_with_hist(xs, ys, ...)`](pymatviz/scatter.py) [![fig-icon]](assets/scripts/scatter/density_hexbin.py)  |
+|                                               ![density-hexbin]                                                |                                               ![density-hexbin-with-hist]                                                |
 
-[density-scatter-plotly]: assets/svg/density-scatter-plotly.svg
-[density-scatter-plotly-blobs]: assets/svg/density-scatter-plotly-blobs.svg
 [density-hexbin-with-hist]: assets/svg/density-hexbin-with-hist.svg
 [density-hexbin]: assets/svg/density-hexbin.svg
 [density-scatter-with-hist]: assets/svg/density-scatter-with-hist.svg
@@ -339,8 +376,6 @@ See [`pymatviz/classify/curves.py`](pymatviz/classify/curves.py).
 [elements-hist]: assets/svg/elements-hist.svg
 [qq-gaussian-multiple]: assets/svg/qq-gaussian-multiple.svg
 [qq-gaussian]: assets/svg/qq-gaussian.svg
-[struct-2d-mp-12712-Hf9Zr9Pd24-disordered]: assets/svg/struct-2d-mp-12712-Hf9Zr9Pd24-disordered.svg
-[struct-2d-mp-19017-Li4Mn0.8Fe1.6P4C1.6O16-disordered]: assets/svg/struct-2d-mp-19017-Li4Mn0.8Fe1.6P4C1.6O16-disordered.svg
 
 ## How to cite `pymatviz`
 
@@ -362,28 +397,38 @@ See [`citation.cff`](citation.cff) or cite the [Zenodo record](https://zenodo.or
 
 ## Papers using `pymatviz`
 
-Sorted by number of citations, then year. Last updated 2025-05-07. Auto-generated [from Google Scholar](https://scholar.google.com/scholar?q=pymatviz). Manual additions [via PR](https://github.com/janosh/pymatviz/edit/main/readme.md) welcome.
+Sorted by number of citations, then year. Last updated 2025-10-12. Auto-generated [from Google Scholar](https://scholar.google.com/scholar?q=pymatviz). Manual additions [via PR](https://github.com/janosh/pymatviz/edit/main/readme.md) welcome.
 
-1. C Zeni, R Pinsler, D Zügner et al. (2023). [Mattergen: a generative model for inorganic materials design](https://arxiv.org/abs/2312.03687) (cited by 134)
-1. J Riebesell, REA Goodall, P Benner et al. (2023). [Matbench Discovery--A framework to evaluate machine learning crystal stability predictions](https://arxiv.org/abs/2308.14920) (cited by 53)
-1. L Barroso-Luque, M Shuaibi, X Fu et al. (2024). [Open materials 2024 (omat24) inorganic materials dataset and models](https://www.rivista.ai/wp-content/uploads/2024/10/2410.12771v1.pdf) (cited by 48)
-1. C Chen, DT Nguyen, SJ Lee et al. (2024). [Accelerating computational materials discovery with machine learning and cloud high-performance computing: from large-scale screening to experimental validation](https://pubs.acs.org/doi/abs/10.1021/jacs.4c03849) (cited by 43)
-1. M Giantomassi, G Materzanini (2024). [Systematic assessment of various universal machine‐learning interatomic potentials](https://onlinelibrary.wiley.com/doi/abs/10.1002/mgea.58) (cited by 22)
-1. AA Naik, C Ertural, P Benner et al. (2023). [A quantum-chemical bonding database for solid-state materials](https://www.nature.com/articles/s41597-023-02477-5) (cited by 15)
-1. K Li, AN Rubungo, X Lei et al. (2025). [Probing out-of-distribution generalization in machine learning for materials](https://www.nature.com/articles/s43246-024-00731-w) (cited by 9)
-1. A Kapeliukha, RA Mayo (2025). [MOSAEC-DB: a comprehensive database of experimental metal–organic frameworks with verified chemical accuracy suitable for molecular simulations](https://pubs.rsc.org/en/content/articlehtml/2025/sc/d4sc07438f) (cited by 3)
+1. C Zeni, R Pinsler, D Zügner et al. (2023). [Mattergen: a generative model for inorganic materials design](https://arxiv.org/abs/2312.03687) (cited by 166)
+1. L Barroso-Luque, M Shuaibi, X Fu et al. (2024). [Open materials 2024 (omat24) inorganic materials dataset and models](https://arxiv.org/abs/2410.12771) (cited by 136)
+1. J Riebesell, REA Goodall, P Benner et al. (2023). [Matbench Discovery--A framework to evaluate machine learning crystal stability predictions](https://arxiv.org/abs/2308.14920) (cited by 117)
+1. C Chen, DT Nguyen, SJ Lee et al. (2024). [Accelerating computational materials discovery with machine learning and cloud high-performance computing: from large-scale screening to experimental validation](https://pubs.acs.org/doi/abs/10.1021/jacs.4c03849) (cited by 81)
+1. M Giantomassi, G Materzanini (2024). [Systematic assessment of various universal machine‐learning interatomic potentials](https://onlinelibrary.wiley.com/doi/abs/10.1002/mgea.58) (cited by 44)
+1. K Li, AN Rubungo, X Lei et al. (2025). [Probing out-of-distribution generalization in machine learning for materials](https://www.nature.com/articles/s43246-024-00731-w) (cited by 29)
+1. AA Naik, C Ertural, P Benner et al. (2023). [A quantum-chemical bonding database for solid-state materials](https://www.nature.com/articles/s41597-023-02477-5) (cited by 22)
+1. A Kapeliukha, RA Mayo (2025). [MOSAEC-DB: a comprehensive database of experimental metal–organic frameworks with verified chemical accuracy suitable for molecular simulations](https://pubs.rsc.org/en/content/articlehtml/2025/sc/d4sc07438f) (cited by 15)
+1. Y Zhou, X He, Z Li (2025). [Scientists' First Exam: Probing Cognitive Abilities of MLLM via Perception, Understanding, and Reasoning](https://arxiv.org/abs/2506.10521) (cited by 6)
+1. HH Li, Q Chen, G Ceder (2024). [Voltage Mining for (De) lithiation-Stabilized Cathodes and a Machine Learning Model for Li-Ion Cathode Voltage](https://pubs.acs.org/doi/abs/10.1021/acsami.4c15742) (cited by 4)
+1. F Therrien, JA Haibeh, D Sharma (2025). [OBELiX: A curated dataset of crystal structures and experimentally measured ionic conductivities for lithium solid-state electrolytes](https://arxiv.org/abs/2502.14234) (cited by 3)
+1. A Onwuli, KT Butler, A Walsh (2024). [Ionic species representations for materials informatics](https://pubs.aip.org/aip/aml/article/2/3/036112/3313198) (cited by 3)
 1. N Tuchinda, CA Schuh (2025). [Grain Boundary Segregation and Embrittlement of Aluminum Binary Alloys from First Principles](https://arxiv.org/abs/2502.01579) (cited by 2)
-1. A Onwuli, KT Butler, A Walsh (2024). [Ionic species representations for materials informatics](https://pubs.aip.org/aip/aml/article/2/3/036112/3313198) (cited by 2)
 1. A Peng, MY Guo (2025). [The OpenLAM Challenges](https://arxiv.org/abs/2501.16358) (cited by 1)
-1. F Therrien, JA Haibeh (2025). [OBELiX: A curated dataset of crystal structures and experimentally measured ionic conductivities for lithium solid-state electrolytes](https://arxiv.org/abs/2502.14234) (cited by 1)
+1. N Tuchinda, CA Schuh (2025). [A grain boundary embrittlement genome for substitutional cubic alloys](https://pubs.aip.org/aip/apl/article/126/17/171602/3345390) (cited by 1)
+1. Giulio Benedini, Antoine Loew, Matti Hellstrom et al. (2025). [Universal Machine Learning Potential for Systems with Reduced Dimensionality](https://arxiv.org/abs/2508.15614v1)
+1. Yuan Chiang, Tobias Kreiman, Elizabeth Weaver et al. (2025). [MLIP Arena: Advancing Fairness and Transparency in Machine Learning Interatomic Potentials through an Open and Accessible Benchmark Platform](https://openreview.net/forum?id=ysKfIavYQE)
+1. Orion Cohen, Janosh Riebesell, Rhys Goodall et al. (2025). [TorchSim: An efficient atomistic simulation engine in PyTorch](http://arxiv.org/abs/2508.06628)
+1. Alin Marin Elena, Prathami Divakar Kamath, Théo Jaffrelot Inizan et al. (2025). [Machine learned potential for high-throughput phonon calculations of metal—organic frameworks](https://www.nature.com/articles/s41524-025-01611-8)
+1. Matthew K. Horton, Patrick Huck, Ruo Xi Yang et al. (2025). [Accelerated data-driven materials science with the Materials Project](https://www.nature.com/articles/s41563-025-02272-0)
 1. Aaron D. Kaplan, Runze Liu, Ji Qi et al. (2025). [A Foundational Potential Energy Surface Dataset for Materials](http://arxiv.org/abs/2503.04070)
+1. Matthew C. Kuner, Aaron D. Kaplan, Kristin A. Persson et al. (2025). [MP-ALOE: An r2SCAN dataset for universal machine learning interatomic potentials](http://arxiv.org/abs/2507.05559)
+1. Anyang Peng, Xinzijian Liu, Ming-Yu Guo et al. (2025). [The OpenLAM Challenges: LAM Crystal Philately competition](https://doi.org/10.1088/2632-2153/add3bf)
+1. Ali Ramlaoui, Martin Siron, Inel Djafar et al. (2025). [LeMat-Traj: A Scalable and Unified Dataset of Materials Trajectories for Atomistic Modeling](http://arxiv.org/abs/2508.20875)
 1. Fei Shuang, Zixiong Wei, Kai Liu et al. (2025). [Universal machine learning interatomic potentials poised to supplant DFT in modeling general defects in metals and random alloys](http://arxiv.org/abs/2502.03578)
 1. Yingheng Tang, Wenbin Xu, Jie Cao et al. (2025). [MatterChat: A Multi-Modal LLM for Material Science](http://arxiv.org/abs/2502.13107)
 1. Liming Wu, Wenbing Huang, Rui Jiao et al. (2025). [Siamese Foundation Models for Crystal Structure Prediction](http://arxiv.org/abs/2503.10471)
 1. K Yan, M Bohde, A Kryvenko (2025). [A Materials Foundation Model via Hybrid Invariant-Equivariant Architectures](https://arxiv.org/abs/2503.05771)
-1. N Tuchinda, CA Schuh (2025). [A Grain Boundary Embrittlement Genome for Substitutional Cubic Alloys](https://arxiv.org/abs/2502.06531)
+1. RA Mayo (2025). [Generalizable classification of crystal structure error types using graph attention networks](https://pubs.rsc.org/en/content/articlehtml/2025/ta/d5ta05426e)
 1. Daniel W. Davies, Keith T. Butler, Adam J. Jackson et al. (2024). [SMACT: Semiconducting Materials by Analogy and Chemical Theory](https://github.com/WMD-group/SMACT)
 1. Hui Zheng, Eric Sivonxay, Rasmus Christensen et al. (2024). [The ab initio non-crystalline structure database: empowering machine learning to decode diffusivity](https://www.nature.com/articles/s41524-024-01469-2)
-1. HH Li, Q Chen, G Ceder (2024). [Voltage Mining for (De) lithiation-Stabilized Cathodes and a Machine Learning Model for Li-Ion Cathode Voltage](https://pubs.acs.org/doi/abs/10.1021/acsami.4c15742)
-1. Janosh Riebesell, Ilyes Batatia, Philipp Benner et al. (2023). [A foundation model for atomistic materials chemistry](https://arxiv.org/abs/2401.00096v1)
+1. Ilyes Batatia, Philipp Benner, Yuan Chiang et al. (2023). [A foundation model for atomistic materials chemistry](https://arxiv.org/abs/2401.00096v1)
 1. Jack Douglas Sundberg (2022). [A New Framework for Material Informatics and Its Application Toward Electride-Halide Material Systems](https://cdr.lib.unc.edu/concern/dissertations/r494vw405)

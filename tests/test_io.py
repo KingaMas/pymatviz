@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import sys
 import urllib.request
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -79,8 +78,8 @@ def test_plotly_pdf_no_mathjax_loading(tmp_path: Path) -> None:
     pmv.save_fig(fig, path)
 
     # check PDF doesn't contain "Loading [MathJax]/extensions/MathMenu.js"
-    with open(path, "rb") as f:
-        pdf = PyPDF2.PdfReader(f)
+    with open(path, mode="rb") as file:
+        pdf = PyPDF2.PdfReader(file)
         assert len(pdf.pages) == 1
         text = pdf.pages[0].extract_text()
         assert "Loading [MathJax]/extensions/MathMenu.js" not in text
@@ -110,38 +109,42 @@ def test_df_to_pdf(
     capsys: pytest.CaptureFixture[str],
     df_float: pd.DataFrame,
 ) -> None:
-    try:
-        import weasyprint
-    except ImportError:
-        weasyprint = None
-    try:
-        import pdfCropMargins
-    except ImportError:
-        pdfCropMargins = None  # noqa: N806
+    from importlib.util import find_spec
 
     file_path = tmp_path / "test_df_to.pdf"
 
-    kwds = dict(
-        styler=df_float.style,
-        file_path=file_path,
+    # check we're raising helpful error messages on missing deps
+    if find_spec("weasyprint") is None:
+        with pytest.raises(ImportError, match="weasyprint not installed\n"):
+            pmv.io.df_to_pdf(
+                df_float.style,
+                file_path,
+                crop=crop,
+                size=size,
+                style=style,
+                styler_css=styler_css,
+            )
+        return
+    if find_spec("pdfCropMargins") is None:
+        with pytest.raises(ImportError, match="pdfCropMargins not installed\n"):
+            pmv.io.df_to_pdf(
+                df_float.style,
+                file_path,
+                crop=crop,
+                size=size,
+                style=style,
+                styler_css=styler_css,
+            )
+        return
+
+    pmv.io.df_to_pdf(
+        df_float.style,
+        file_path,
         crop=crop,
         size=size,
         style=style,
         styler_css=styler_css,
     )
-
-    # check we're raising helpful error messages on missing deps
-    if weasyprint is None:
-        with pytest.raises(ImportError, match="weasyprint not installed\n"):
-            pmv.io.df_to_pdf(**kwds)
-        return
-
-    if pdfCropMargins is None:
-        with pytest.raises(ImportError, match="cropPdfMargins not installed\n"):
-            pmv.io.df_to_pdf(**kwds)
-        return
-
-    pmv.io.df_to_pdf(**kwds)
 
     # Check if the file is created
     assert file_path.is_file()
@@ -158,7 +161,14 @@ def test_df_to_pdf(
 
     # Test file overwrite behavior
     file_size_before = file_path.stat().st_size  # ~7000 bytes
-    pmv.io.df_to_pdf(**kwds)
+    pmv.io.df_to_pdf(
+        df_float.style,
+        file_path,
+        crop=crop,
+        size=size,
+        style=style,
+        styler_css=styler_css,
+    )
     file_size_after = file_path.stat().st_size  # ~7000 bytes
 
     # file size should be the same since content is unchanged

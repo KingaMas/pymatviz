@@ -6,7 +6,6 @@ import copy
 import os
 import subprocess
 import warnings
-from pathlib import Path
 from shutil import which
 from time import sleep
 from typing import TYPE_CHECKING
@@ -238,8 +237,8 @@ def df_to_pdf(
             Defaults to True. Be careful to set size correctly (not much too large as
             is the default) if you set crop=False.
         size (str): Page size. Defaults to "4cm * n_cols x 2cm * n_rows"
-            (width x height). See https://developer.mozilla.org/@page for 'landscape'
-            and other special values.
+            (width x height). See https://developer.mozilla.org/docs/Web/CSS/@page for
+            'landscape' and other special values.
         style (str): CSS style string to be inserted into the HTML file.
             Defaults to "".
         styler_css (bool | dict[str, str]): Whether to apply some sensible default CSS
@@ -365,8 +364,6 @@ def df_to_html(
     pre_table: str | None = "",
     styles: str | None = ALLOW_TABLE_SCROLL + HIDE_SCROLL_BAR,
     styler_css: bool | dict[str, str] = True,
-    use_sortable: bool = True,
-    use_tooltips: bool = True,
     post_process: Callable[[str], str] | None = None,
     **kwargs: Any,
 ) -> str:
@@ -385,10 +382,6 @@ def df_to_html(
             to the pandas Styler. Defaults to True. If dict, keys are CSS selectors and
             values CSS strings. Example:
             dict("td, th": "border: none; padding: 4px 6px;")
-        use_sortable (bool): Whether to enable sorting the table by clicking on column
-            headers. Defaults to True. Requires npm install svelte-zoo.
-        use_tooltips (bool): Whether to enable tooltips on table headers. Defaults to
-            True. Requires npm install svelte-zoo.
         post_process (Callable[[str], str]): Function to post-process the HTML string
             before writing it to file. Defaults to None.
         **kwargs: Keyword arguments passed to Styler.to_html().
@@ -403,27 +396,10 @@ def df_to_html(
             [dict(selector=sel, props=val) for sel, val in styler_css.items()]
         )
     html = styler.to_html(**kwargs)
+    if html is None:
+        raise ValueError("Styler.to_html() returned None, don't pass buf kwarg")
     if pre_table:
         html = html.replace("<table", pre_table)
-
-    for cond, action_name in (
-        (use_tooltips, "titles_as_tooltips"),
-        (use_sortable, "sortable"),
-    ):
-        if not cond:
-            continue
-        if "</script>" in html:
-            html = html.replace(
-                "</script>",
-                f"\n\timport {{ {action_name} }} from 'svelte-zoo/actions'\n</script>",
-            )
-            html = html.replace("<table", f"<table use:{action_name} ")
-        else:
-            svelte_action = (
-                f"<script>\n\timport {{ {action_name} }} from 'svelte-zoo/actions'\n"
-                f"</script>\n<table use:{action_name} "
-            )
-            html = html.replace("<table", svelte_action)
 
     if inline_props:
         if "<table " not in html:
@@ -492,8 +468,9 @@ def df_to_svg(
         style = soup.find("style")
         sheet = cssutils.parseString(style.text) if style else []
 
-        def get_style_prop(element: bs4.element.Tag, prop_name: str) -> str | None:
-            style = element.get("style", "").lower()
+        def get_style_prop(element: bs4.Tag, prop_name: str) -> str | None:
+            style_attr = element.get("style", "")
+            style = style_attr.lower() if style_attr is not None else ""
             if prop_name in style:
                 return style.split(f"{prop_name}:")[1].split(";")[0].strip()
             if "id" in element.attrs:

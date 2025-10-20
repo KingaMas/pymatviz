@@ -359,20 +359,12 @@ def test_unit_html_consistency() -> None:
 
         # Check proper HTML tag nesting
         if "<sup>" in unit:
-            assert unit.count("<sup>") == unit.count("</sup>"), (
-                f"Mismatched sup tags in {unit}"
-            )
-            assert "</sup>" not in unit[: unit.index("<sup>")], (
-                f"Improper sup tag nesting in {unit}"
-            )
+            assert unit.count("<sup>") == unit.count("</sup>")
+            assert "</sup>" not in unit[: unit.index("<sup>")]
 
         if "<sub>" in unit:
-            assert unit.count("<sub>") == unit.count("</sub>"), (
-                f"Mismatched sub tags in {unit}"
-            )
-            assert "</sub>" not in unit[: unit.index("<sub>")], (
-                f"Improper sub tag nesting in {unit}"
-            )
+            assert unit.count("<sub>") == unit.count("</sub>")
+            assert "</sub>" not in unit[: unit.index("<sub>")]
 
         # Check no nested tags
         if "<sup>" in unit and "<sub>" in unit:
@@ -472,7 +464,7 @@ def test_data_files_enum(tmp_path: Path) -> None:
     class TestDataFiles(Files, base_dir=str(tmp_path), auto_download=False):
         mp_energies = (
             "mp/2025-02-01-mp-energies.csv.gz",
-            "https://figshare.com/files/123456",  # Example URL
+            "https://figshare.com/files/789012",  # Example URL
             "MP Energies Test",
             "Test description for MP energies",
         )
@@ -492,21 +484,21 @@ def test_data_files_enum(tmp_path: Path) -> None:
         == f"{tmp_path}/mp/2025-02-01-mp-energies.csv.gz"
     )
     assert TestDataFiles.mp_energies.name == "mp_energies"
-    assert TestDataFiles.mp_energies.url.startswith("https://figshare.com/files/")
+    assert TestDataFiles.mp_energies.url == "https://figshare.com/files/789012"
 
     assert TestDataFiles.wbm_summary.rel_path == "wbm/2023-12-13-wbm-summary.csv.gz"
     assert (
         TestDataFiles.wbm_summary.file_path
         == f"{tmp_path}/wbm/2023-12-13-wbm-summary.csv.gz"
     )
-    assert TestDataFiles.wbm_summary.url.startswith("https://figshare.com/files/")
+    assert TestDataFiles.wbm_summary.url == "https://figshare.com/files/789012"
 
 
 # Define a local enum for URL testing to avoid dependency on global Files state
 class LocalTestFilesForUrls(Files):
     file1_figshare_url = (
         "path1/file1.txt",
-        "https://figshare.com/files/111111",
+        "https://figshare.com/files/789012",
         "File 1 Figshare",
     )
     file2_empty_url = ("path2/file2.txt", "", "File 2 Empty URL")
@@ -585,7 +577,7 @@ def test_files_enum_auto_download(
         content = b"not found"
 
         def raise_for_status(self) -> None:
-            raise requests.exceptions.HTTPError(f"HTTP Error: {self.status_code}")
+            raise requests.HTTPError(f"HTTP Error: {self.status_code}")
 
     # Mock stdin (though not used by current Files enum)
     class MockStdin:
@@ -595,7 +587,7 @@ def test_files_enum_auto_download(
     monkeypatch.setattr(sys, "stdin", MockStdin())
 
     # Test 1: Auto-download enabled, file does NOT exist. Download should happen.
-    if os.path.exists(expected_abs_path):
+    if os.path.isfile(expected_abs_path):
         os.remove(expected_abs_path)
     monkeypatch.setattr(TestFileEnum, "_auto_download", True)
 
@@ -621,7 +613,7 @@ def test_files_enum_auto_download(
         assert "Downloading" not in stdout_exists
 
     # Test 3: Auto-download disabled, file does NOT exist. No download attempt.
-    if os.path.exists(expected_abs_path):
+    if os.path.isfile(expected_abs_path):
         os.remove(expected_abs_path)
     monkeypatch.setattr(TestFileEnum, "_auto_download", False)
 
@@ -640,7 +632,7 @@ def test_files_enum_auto_download(
     file_no_url = TestFileNoUrl.no_url_file
     path_no_url = f"{tmp_path}/{file_no_url.value}"  # Construct path from enum value
     os.makedirs(os.path.dirname(path_no_url), exist_ok=True)
-    if os.path.exists(path_no_url):
+    if os.path.isfile(path_no_url):
         os.remove(path_no_url)
 
     with patch("requests.get") as mock_get_no_url:
@@ -664,12 +656,12 @@ def test_files_enum_auto_download(
     path_fail_dl = f"{tmp_path}/{file_fail_dl.value}"  # Construct path from enum value
     url_fail_dl = file_fail_dl.url  # Get URL from enum member
     os.makedirs(os.path.dirname(path_fail_dl), exist_ok=True)
-    if os.path.exists(path_fail_dl):
+    if os.path.isfile(path_fail_dl):
         os.remove(path_fail_dl)
 
     with patch("requests.get", return_value=MockFailedResponse()) as mock_get_fail:
         # _auto_download is True from class definition
-        with pytest.raises(requests.exceptions.HTTPError, match="HTTP Error: 404"):
+        with pytest.raises(requests.HTTPError, match="HTTP Error: 404"):
             _ = file_fail_dl.file_path  # This will trigger download attempt & fail
         mock_get_fail.assert_called_once_with(url_fail_dl)
         assert not os.path.isfile(path_fail_dl)

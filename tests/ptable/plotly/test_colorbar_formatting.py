@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 
 import pymatviz as pmv
 
 
 if TYPE_CHECKING:
-    import plotly.graph_objects as go
     from plotly.graph_objects import Figure
 
 
@@ -29,7 +29,9 @@ def get_main_colorbar_trace(fig: Figure) -> go.Heatmap:
     )
 
 
-def get_dataset_colorbar_traces(fig: Figure, dataset_name: str) -> list[go.Heatmap]:
+def get_colorbar_traces_by_title(
+    fig: Figure, dataset_name: str
+) -> list[go.Scatter | go.Heatmap]:
     """Get colorbar traces for a specific dataset from a figure.
 
     This finds traces with colorbars that have the dataset name in their title.
@@ -92,8 +94,8 @@ def test_ptable_heatmap_splits_colorbar_formatting() -> None:
     fig = pmv.ptable_heatmap_splits_plotly(test_data)
 
     # Find traces with colorbars for each dataset
-    dataset1_colorbars = get_dataset_colorbar_traces(fig, "Dataset 1")
-    dataset2_colorbars = get_dataset_colorbar_traces(fig, "Dataset 2")
+    dataset1_colorbars = get_colorbar_traces_by_title(fig, "Dataset 1")
+    dataset2_colorbars = get_colorbar_traces_by_title(fig, "Dataset 2")
 
     # Verify we have colorbars for both datasets
     assert len(dataset1_colorbars) > 0
@@ -101,6 +103,7 @@ def test_ptable_heatmap_splits_colorbar_formatting() -> None:
 
     # Verify that all colorbars use SI suffixes
     for trace in dataset1_colorbars + dataset2_colorbars:
+        assert isinstance(trace, go.Scatter)
         assert trace.marker.colorbar.tickformat == "~s", (
             "Colorbar not using SI suffixes"
         )
@@ -209,8 +212,8 @@ def test_ptable_heatmap_splits_colorbar_si_formatting() -> None:
     fig = pmv.ptable_heatmap_splits_plotly(test_data, colorbar={"tickformat": ".1~s"})
 
     # Find traces with colorbars for each dataset
-    dataset1_colorbars = get_dataset_colorbar_traces(fig, "Dataset 1")
-    dataset2_colorbars = get_dataset_colorbar_traces(fig, "Dataset 2")
+    dataset1_colorbars = get_colorbar_traces_by_title(fig, "Dataset 1")
+    dataset2_colorbars = get_colorbar_traces_by_title(fig, "Dataset 2")
 
     # Verify we have colorbars for both datasets
     assert len(dataset1_colorbars) > 0
@@ -218,9 +221,8 @@ def test_ptable_heatmap_splits_colorbar_si_formatting() -> None:
 
     # Verify that all colorbars use SI suffixes
     for trace in dataset1_colorbars + dataset2_colorbars:
-        assert trace.marker.colorbar.tickformat == ".1~s", (
-            "Colorbar not using SI suffixes"
-        )
+        assert isinstance(trace, go.Scatter)
+        assert trace.marker.colorbar.tickformat == ".1~s"
 
 
 def count_si_formatted_axes(fig: Figure, axis_type: str = "xaxis") -> int:

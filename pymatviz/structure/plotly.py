@@ -242,7 +242,7 @@ def structure_2d(
                 zip(struct_i, rotated_coords_all_sites, strict=False)
             ):
                 # Determine legend parameters for primary sites
-                symbol = helpers._get_site_symbol(site)
+                symbol = helpers.get_site_symbol(site)
                 legendgroup = None
                 showlegend = False
                 if site_labels == "legend":
@@ -344,15 +344,27 @@ def structure_2d(
         # Draw bonds after sites are processed to ensure proper filtering
         if show_bonds:
             # Handle per-structure show_bonds settings if it's a dict
-            struct_show_bonds = show_bonds
+            struct_show_bonds: bool | NearNeighbors
             if isinstance(show_bonds, dict):
-                struct_show_bonds = show_bonds.get(struct_key, False)
+                struct_show_bonds = show_bonds.get(struct_key, False)  # type: ignore[assignment]
+            else:
+                struct_show_bonds = show_bonds
 
             if struct_show_bonds:
+                # Determine the NearNeighbors object to use
+                if struct_show_bonds is True:
+                    nn_obj = cast("NearNeighbors", CrystalNN())
+                else:
+                    nn_obj = struct_show_bonds
+
+                # Ensure nn_obj is a NearNeighbors object
+                if not isinstance(nn_obj, NearNeighbors):
+                    raise TypeError(f"Expected NearNeighbors, got {type(nn_obj)}")
+
                 helpers.draw_bonds(
                     fig=fig,
                     structure=augmented_structure,  # Pass augmented structure
-                    nn=CrystalNN() if struct_show_bonds is True else struct_show_bonds,
+                    nn=nn_obj,
                     is_3d=False,
                     bond_kwargs=bond_kwargs,
                     row=row,
@@ -406,7 +418,7 @@ def structure_2d(
         fig.layout[f"yaxis{key}"].scaleanchor = f"x{key}"
 
     # Configure legends for each subplot
-    helpers._configure_legends(fig, site_labels, n_structs, n_cols, n_rows)
+    helpers.configure_subplot_legends(fig, site_labels, n_structs, n_cols, n_rows)
 
     return fig
 
@@ -621,7 +633,7 @@ def structure_3d(
                     else site_idx_loop % len(struct_i)
                 )
 
-                symbol = helpers._get_site_symbol(site)
+                symbol = helpers.get_site_symbol(site)
 
                 # Determine legend parameters for primary sites only
                 legendgroup = None
@@ -684,9 +696,11 @@ def structure_3d(
         # Draw bonds using the augmented structure after sites are processed
         if show_bonds:
             # Handle per-structure show_bonds settings if it's a dict
-            struct_show_bonds = show_bonds
+            struct_show_bonds: bool | NearNeighbors
             if isinstance(show_bonds, dict):
-                struct_show_bonds = show_bonds.get(struct_key, False)
+                struct_show_bonds = show_bonds.get(struct_key, False)  # type: ignore[assignment]
+            else:
+                struct_show_bonds = show_bonds
 
             if struct_show_bonds:
                 plotted_sites_coords: set[tuple[float, float, float]] | None = None
@@ -700,10 +714,20 @@ def structure_3d(
                     # If no sites are rendered, set empty set to filter out all bonds
                     plotted_sites_coords = set()
 
+                # Determine the NearNeighbors object to use
+                if struct_show_bonds is True:
+                    nn_obj = cast("NearNeighbors", CrystalNN())
+                else:
+                    nn_obj = struct_show_bonds
+
+                # Ensure nn_obj is a NearNeighbors object
+                if not isinstance(nn_obj, NearNeighbors):
+                    raise TypeError(f"Expected NearNeighbors, got {type(nn_obj)}")
+
                 helpers.draw_bonds(
                     fig=fig,
                     structure=augmented_structure,  # Pass the augmented structure
-                    nn=CrystalNN() if struct_show_bonds is True else struct_show_bonds,
+                    nn=nn_obj,
                     is_3d=True,
                     bond_kwargs=bond_kwargs,
                     scene=f"scene{idx}",
@@ -771,7 +795,7 @@ def structure_3d(
     fig.layout.margin = dict(l=0, r=0, t=30, b=0)  # Minimize margins
 
     # Configure legends for each subplot
-    helpers._configure_legends(fig, site_labels, n_structs, n_cols, n_rows)
+    helpers.configure_subplot_legends(fig, site_labels, n_structs, n_cols, n_rows)
 
     return fig
 

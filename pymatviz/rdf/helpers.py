@@ -5,13 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from pymatgen.optimization.neighbors import find_points_in_spheres
+from pymatgen.optimization.neighbors import (  # type: ignore[unresolved-import]
+    find_points_in_spheres,
+)
 
 from pymatviz.process_data import normalize_structures
 
 
 if TYPE_CHECKING:
-    from pymatgen.util.typing import PbcLike
+    from typing import Literal
 
     from pymatviz.typing import AnyStructure
 
@@ -22,7 +24,7 @@ def calculate_rdf(
     neighbor_species: str | None = None,
     cutoff: float = 15,
     n_bins: int = 75,
-    pbc: PbcLike = (True, True, True),
+    pbc: tuple[Literal[0, 1], Literal[0, 1], Literal[0, 1]] = (1, 1, 1),
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate the radial distribution function (RDF) for a given structure.
 
@@ -63,12 +65,15 @@ def calculate_rdf(
     radii = np.linspace(0, cutoff, n_bins + 1)[1:]
     rdf = np.zeros_like(radii)
 
+    # Import here to avoid circular import
+    from pymatviz.structure.helpers import get_site_elements
+
     # Get indices of center and neighbor species
     if center_species:
         center_indices = [
             idx
             for idx, site in enumerate(struct)
-            if site.specie.symbol == center_species
+            if center_species in get_site_elements(site)
         ]
     else:
         center_indices = list(range(len(struct)))
@@ -77,7 +82,7 @@ def calculate_rdf(
         neighbor_indices = [
             idx
             for idx, site in enumerate(struct)
-            if site.specie.symbol == neighbor_species
+            if neighbor_species in get_site_elements(site)
         ]
     else:
         neighbor_indices = list(range(len(struct)))

@@ -139,9 +139,9 @@ def test_xrd_pattern_layout_and_range() -> None:
     [
         (pmv.xrd.HklCompact, r"\d{3}", True),
         (pmv.xrd.HklFull, r"\(\d, \d, \d\)", True),
-        (pmv.xrd.HklNone, r"\d+\.\d+°", True),
+        (None, r"\d+\.\d+°", True),
         (pmv.xrd.HklCompact, r"\d{3}", False),
-        (pmv.xrd.HklNone, None, False),
+        (None, None, False),
     ],
 )
 def test_xrd_pattern_annotation_format(
@@ -165,7 +165,7 @@ def test_xrd_pattern_annotation_format(
     assert "2θ (degrees)" in [anno.text for anno in axis_annotations]
     assert "Intensity (a.u.)" in [anno.text for anno in axis_annotations]
 
-    if hkl_format is pmv.xrd.HklNone and not show_angles:
+    if hkl_format is None and not show_angles:
         # No peak annotations if hkl_format is None and show_angles is False.
         assert len(peak_annotations) == 0
     else:
@@ -293,6 +293,7 @@ def test_xrd_pattern_stack_and_kwargs(
     assert len(fig.data) == 2
 
     if stack:
+        assert fig._grid_ref is not None
         actual_rows = len(fig._grid_ref)
         actual_cols = len(fig._grid_ref[0])
         assert actual_rows == expected_rows

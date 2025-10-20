@@ -22,11 +22,18 @@ from pymatviz.phonons.helpers import (
     phonopy_to_pymatgen_bands,
     pretty_sym_point,
 )
-from pymatviz.typing import SET_INTERSECTION, SET_MODE, SET_STRICT, SET_UNION, SetMode
+from pymatviz.typing import (
+    SET_INTERSECTION,
+    SET_MODE,
+    SET_STRICT,
+    SET_UNION,
+    AnyDos,
+    SetMode,
+)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Hashable, Sequence
     from typing import Any
 
     from phonopy.phonon.band_structure import BandStructure as PhonopyBandStructure
@@ -99,10 +106,10 @@ def phonon_bands(
         band_structs = {"": band_structs}
 
     # Convert phonopy band structures to pymatgen format
-    converted_band_structs: dict[str, AnyBandStructure] = {}
+    converted_band_structs: dict[Hashable, AnyBandStructure] = {}
     for key, bands in band_structs.items():
         if type(bands).__module__.startswith("phonopy"):
-            converted_band_structs[key] = phonopy_to_pymatgen_bands(bands)
+            converted_band_structs[key] = phonopy_to_pymatgen_bands(bands)  # type: ignore[arg-type]
         elif isinstance(bands, PhononBands):
             converted_band_structs[key] = bands
         else:
@@ -381,7 +388,7 @@ def phonon_bands(
 
 
 def phonon_dos(
-    doses: PhononDos | dict[str, PhononDos],
+    doses: AnyDos | dict[str, AnyDos],
     *,
     stack: bool = False,
     sigma: float = 0,
@@ -393,8 +400,8 @@ def phonon_dos(
     """Plot phonon DOS using Plotly.
 
     Args:
-        doses (PhononDos | dict[str, PhononDos]): pymatgen PhononDos or phonopy TotalDos
-            or dict of multiple of either.
+        doses (AnyDos | dict[str, AnyDos]): pymatgen
+            PhononDos or phonopy TotalDos or dict of multiple of either.
         stack (bool): Whether to plot the DOS as a stacked area graph. Defaults to
             False.
         sigma (float): Standard deviation for Gaussian smearing. Defaults to None.

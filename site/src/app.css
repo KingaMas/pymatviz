@@ -18,8 +18,8 @@
   --toc-active-bg: none;
   --toc-active-border-radius: 0;
 
-  --zoo-github-corner-color: var(--night);
-  --zoo-github-corner-bg: white;
+  --github-corner-color: var(--night);
+  --github-corner-bg: white;
 
   --sms-options-bg: rgb(50, 48, 66);
   --sms-active-color: cornflowerblue;
@@ -30,11 +30,7 @@ body {
   color: var(--text-color);
   line-height: 1.5;
   margin: 0;
-}
-body > div {
-  display: flex;
   min-height: 100vh;
-  flex-direction: column;
 }
 main {
   padding: calc(1ex + 2vw);

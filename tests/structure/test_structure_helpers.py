@@ -7,24 +7,33 @@ import plotly.graph_objects as go
 import pytest
 from numpy.testing import assert_allclose
 from pymatgen.analysis.local_env import CrystalNN
-from pymatgen.core import Composition, Lattice, PeriodicSite, Species, Structure
+from pymatgen.core import (
+    Composition,
+    Element,
+    Lattice,
+    PeriodicSite,
+    Species,
+    Structure,
+)
 
 from pymatviz.enums import ElemColorScheme, SiteCoords
 from pymatviz.structure.helpers import (
     CELL_EDGES,
     NO_SYM_MSG,
     _angles_to_rotation_matrix,
-    _create_disordered_site_legend_name,
     draw_bonds,
     draw_cell,
     draw_disordered_site,
     draw_site,
     draw_vector,
     get_atomic_radii,
+    get_disordered_site_legend_name,
     get_elem_colors,
     get_first_matching_site_prop,
     get_image_sites,
+    get_site_elements,
     get_site_hover_text,
+    get_site_species,
     get_struct_prop,
     get_subplot_title,
 )
@@ -44,6 +53,43 @@ def mock_figure() -> Any:
             self.last_trace_kwargs = kwargs
 
     return MockFigure()
+
+
+@pytest.mark.parametrize(
+    ("species_input", "expected_type", "expected_elements"),
+    [
+        ("Si", Element, {"Si"}),
+        (Element("O"), Element, {"O"}),
+        (Species("Fe", 2), Species, {"Fe"}),
+        (Composition({"Fe": 0.75, "Co": 0.25}), Composition, {"Fe", "Co"}),
+        (
+            Composition({"Fe": 0.5, "Co": 0.3, "Ni": 0.2}),
+            Composition,
+            {"Fe", "Co", "Ni"},
+        ),
+    ],
+)
+def test_get_site_species_and_elements(
+    species_input: Any, expected_type: type, expected_elements: set[str]
+) -> None:
+    """Test get_site_species and get_site_elements for all site types."""
+    lattice = Lattice.cubic(3.0)
+    site = PeriodicSite(species_input, [0, 0, 0], lattice)
+
+    species_result = get_site_species(site)
+    assert isinstance(species_result, expected_type)
+
+    elements_result = get_site_elements(site)
+    assert elements_result == expected_elements
+
+
+def test_get_site_elements_on_disordered_struct(fe3co4_disordered: Structure) -> None:
+    """Test get_site_elements returns valid symbols for disordered structure."""
+    for site in fe3co4_disordered:
+        elements = get_site_elements(site)
+        assert isinstance(elements, set)
+        assert len(elements) >= 1
+        assert all(isinstance(e, str) and e[0].isupper() for e in elements)
 
 
 @pytest.mark.parametrize(
@@ -834,7 +880,9 @@ def test_draw_bonds_advanced(
         structure=structure,
         nn=nn_strategy,
         is_3d=is_3d,
-        rotation_matrix=rotation_matrix,
+        rotation_matrix=np.array(rotation_matrix)
+        if rotation_matrix is not None
+        else None,
         plotted_sites_coords=plotted_sites_coords,
     )
 
@@ -927,7 +975,7 @@ def test_draw_disordered_site_legend_functionality() -> None:
     draw_disordered_site(
         fig=fig_2d,
         site=disordered_site,
-        coords=coords_2d,
+        coords=np.array(coords_2d),
         site_idx=0,
         site_labels="legend",
         elem_colors=elem_colors,
@@ -957,7 +1005,7 @@ def test_draw_disordered_site_legend_functionality() -> None:
     draw_disordered_site(
         fig=fig_3d,
         site=disordered_site,
-        coords=coords_3d,
+        coords=np.array(coords_3d),
         site_idx=0,
         site_labels="legend",
         elem_colors=elem_colors,
@@ -986,21 +1034,21 @@ def test_draw_disordered_site_legend_functionality() -> None:
             assert trace.legendgroup == "disordered_site_0"
 
 
-def test_create_disordered_site_legend_name() -> None:
-    """Test the _create_disordered_site_legend_name helper function."""
+def testget_disordered_site_legend_name() -> None:
+    """Test the get_disordered_site_legend_name helper function."""
     # Test binary composition
     sorted_species = [(Species("Fe"), 0.6), (Species("Ni"), 0.4)]
-    result = _create_disordered_site_legend_name(sorted_species, is_image=False)
+    result = get_disordered_site_legend_name(sorted_species, is_image=False)
     assert result == "Fe₀.₆Ni₀.₄"
 
     # Test ternary composition
     sorted_species = [(Species("Fe"), 0.5), (Species("Ni"), 0.3), (Species("Cr"), 0.2)]
-    result = _create_disordered_site_legend_name(sorted_species, is_image=False)
+    result = get_disordered_site_legend_name(sorted_species, is_image=False)
     assert result == "Fe₀.₅Ni₀.₃Cr₀.₂"
 
     # Test image site (should have same format)
     sorted_species = [(Species("Fe"), 0.8), (Species("Co"), 0.2)]
-    result = _create_disordered_site_legend_name(sorted_species, is_image=True)
+    result = get_disordered_site_legend_name(sorted_species, is_image=True)
     assert result == "Image of Fe₀.₈Co₀.₂"  # Image sites have "Image of " prefix
 
     # Test rounding behavior
@@ -1008,5 +1056,5 @@ def test_create_disordered_site_legend_name() -> None:
         (Species("Ni"), 0.666667),
         (Species("Fe"), 0.333333),
     ]  # Already sorted by occupancy
-    result = _create_disordered_site_legend_name(sorted_species, is_image=False)
+    result = get_disordered_site_legend_name(sorted_species, is_image=False)
     assert result == "Ni₀.₆₇Fe₀.₃₃"  # Should be sorted by occupancy and rounded
